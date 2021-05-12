@@ -16,15 +16,17 @@
 
 package com.example.android.guesstheword.screens.game
 
+import android.os.Build
 import android.os.Bundle
-import android.text.format.DateUtils
+import android.os.VibrationEffect
+import android.os.Vibrator
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.content.getSystemService
 import androidx.databinding.DataBindingUtil
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.Observer
 import androidx.lifecycle.ViewModelProvider
 import androidx.navigation.fragment.NavHostFragment.findNavController
 import com.example.android.guesstheword.R
@@ -53,30 +55,37 @@ class GameFragment : Fragment() {
         Log.i("GameFragment", "Called ViewModelProvider!")
         //viewModel = ViewModelProviders.of(this).get(GameViewModel::class.java)
         viewModel = ViewModelProvider(this).get(GameViewModel::class.java)
-        viewModel.score.observe(this, Observer { newScore ->
+        viewModel.score.observe(viewLifecycleOwner) { newScore ->
             binding.scoreText.text = newScore.toString()
             Log.i("GameFragment", "${viewModel.score} ${viewModel.score.value}")
-        })
-        viewModel.word.observe(this, Observer { newWord ->
+        }
+        viewModel.word.observe(viewLifecycleOwner) { newWord ->
             binding.wordText.text = newWord
-        })
-        viewModel.eventGameFinish.observe(this, Observer { hasFinished ->
+        }
+        viewModel.eventGameFinish.observe(viewLifecycleOwner) { hasFinished ->
             if(hasFinished){
                 gameFinished()
                 viewModel.onGameFinishComplete()
             }
-        })
+        }
+
+        viewModel.evenPanicBuzzing.observe(viewLifecycleOwner) { isPanic ->
+            if (isPanic){
+                buzz(BuzzType.COUNTDOWN_PANIC.pattern)
+            }
+        }
 //        viewModel.seconds.observe(this, Observer { newTime ->
 //            binding.timerText.text = DateUtils.formatElapsedTime(newTime)
 //        })
 
-        viewModel.currentTimeString.observe(this, Observer { newTime ->
+        viewModel.currentTimeString.observe(viewLifecycleOwner) { newTime ->
             binding.timerText.text = newTime
-        })
+        }
 
 
         binding.correctButton.setOnClickListener {
             viewModel.onCorrect()
+            buzz(BuzzType.CORRECT.pattern)
         }
         binding.skipButton.setOnClickListener {
             viewModel.onSkip()
@@ -89,7 +98,22 @@ class GameFragment : Fragment() {
      * Called when the game is finished
      */
     private fun gameFinished() {
+        buzz(BuzzType.GAME_OVER.pattern)
         val action = GameFragmentDirections.actionGameToScore(viewModel.score.value ?: 0)
         findNavController(this).navigate(action)
+    }
+
+    private fun buzz(pattern: LongArray) {
+        val buzzer = activity?.getSystemService<Vibrator>()
+//        val buzzer = activity?.getSystemService(Context.VIBRATOR_SERVICE)
+
+        buzzer?.let {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                buzzer.vibrate(VibrationEffect.createWaveform(pattern, -1))
+            } else {
+                //deprecated in API 26
+                buzzer.vibrate(pattern, -1)
+            }
+        }
     }
 }

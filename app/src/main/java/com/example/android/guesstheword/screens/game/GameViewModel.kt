@@ -8,6 +8,18 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.Transformations
 import androidx.lifecycle.ViewModel
 
+private val CORRECT_BUZZ_PATTERN = longArrayOf(100, 100, 100, 100, 100, 100)
+private val PANIC_BUZZ_PATTERN = longArrayOf(0, 200)
+private val GAME_OVER_BUZZ_PATTERN = longArrayOf(0, 2000)
+private val NO_BUZZ_PATTERN = longArrayOf(0)
+
+enum class BuzzType(val pattern: LongArray) {
+    CORRECT(CORRECT_BUZZ_PATTERN),
+    GAME_OVER(GAME_OVER_BUZZ_PATTERN),
+    COUNTDOWN_PANIC(PANIC_BUZZ_PATTERN),
+    NO_BUZZ(NO_BUZZ_PATTERN)
+}
+
 class GameViewModel : ViewModel() {
 
     companion object {
@@ -29,9 +41,13 @@ class GameViewModel : ViewModel() {
     val seconds: LiveData<Long>
         get() = _seconds
 
-    public val currentTimeString = Transformations.map(_seconds,{time ->
+    val currentTimeString = Transformations.map(_seconds) { time ->
         DateUtils.formatElapsedTime(time)
-    })
+    }
+
+    private val _eventPanicBuzzing = MutableLiveData<Boolean>()
+    val evenPanicBuzzing: LiveData<Boolean>
+        get() = _eventPanicBuzzing
 
     // The current word
     private val _word = MutableLiveData<String>()
@@ -53,16 +69,24 @@ class GameViewModel : ViewModel() {
 
     init {
         Log.i("GameViewModel", "GameViewModel created!")
+        _eventPanicBuzzing.value = false
         _eventGameFinish.value = false
         _score.value = 0
 
         timer = object : CountDownTimer(COUNTDOWN_TIME, ONE_SECOND) {
             override fun onTick(millisUntilFinished: Long) {
                 _seconds.value = millisUntilFinished / ONE_SECOND
+                if (millisUntilFinished < 3000 && _eventPanicBuzzing.value != true)
+                    _eventPanicBuzzing.value = true
+                if (millisUntilFinished < 2000 && _eventPanicBuzzing.value != true)
+                    _eventPanicBuzzing.value = true
+                if (millisUntilFinished < 1000 && _eventPanicBuzzing.value != true)
+                    _eventPanicBuzzing.value = true
             }
 
             override fun onFinish() {
                 _eventGameFinish.value = true
+                _eventPanicBuzzing.value = false
             }
         }
         resetList()
